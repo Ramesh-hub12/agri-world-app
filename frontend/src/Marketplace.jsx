@@ -1,139 +1,175 @@
-
 import React, { useState, useEffect } from 'react';
 import API from './api';
-import { Search, MapPin, BadgeCheck, Scale } from 'lucide-react';
+import { Tag, Scale, ShoppingBag, Search, CheckCircle, Info, MapPin } from 'lucide-react';
 
-const Marketplace = ({ lang }) => {
+const Marketplace = ({ userId, lang }) => {
     const [listings, setListings] = useState([]);
-    const [searchCrop, setSearchCrop] = useState('');
-    const [searchDistrict, setSearchDistrict] = useState('');
+    const [formData, setFormData] = useState({
+        crop_name: 'Paddy',
+        quantity: '',
+        price: '',
+        is_organic: false
+    });
+    const [marketTip, setMarketTip] = useState(null);
+    const [searchQuery, setSearchQuery] = useState({ crop: '', district: '' });
 
-    // Dictionary for Marketplace Text
-    const uiText = {
-        en: {
-            title: "Global Marketplace",
-            subtitle: "Connecting Telangana farmers to verified buyers",
-            searchBtn: "Search",
-            cropPlaceholder: "Crop (e.g. Paddy)",
-            distPlaceholder: "District",
-            organic: "ORGANIC",
-            quantity: "Quantity",
-            moisture: "Moisture Content",
-            priceLabel: "Price per kg",
-            contact: "Contact Farmer",
-            noData: "No crops listed in this zone yet."
-        },
-        te: {
-            title: "గ్లోబల్ మార్కెట్ ప్లేస్",
-            subtitle: "తెలంగాణ రైతులను ధృవీకరించబడిన కొనుగోలుదారులతో అనుసంధానించడం",
-            searchBtn: "వెతకండి",
-            cropPlaceholder: "పంట (ఉదా: వరి)",
-            distPlaceholder: "జిల్లా",
-            organic: "సేంద్రియ",
-            quantity: "పరిమాణం",
-            moisture: "తేమ శాతం",
-            priceLabel: "కిలో ధర",
-            contact: "రైతును సంప్రదించండి",
-            noData: "ఈ జోన్‌లో ఇంకా పంటలు నమోదు కాలేదు."
+    useEffect(() => {
+        fetchListings();
+    }, []);
+
+    const fetchListings = async () => {
+        try {
+            const res = await API.get('/marketplace/search', { params: searchQuery });
+            setListings(res.data);
+        } catch (err) {
+            console.error("Failed to fetch listings");
         }
     };
 
-    const t = uiText[lang];
-
-    useEffect(() => {
-        handleSearch();
-    }, []);
-
-    const handleSearch = async () => {
+    const checkFairness = async (price) => {
+        if (!price || price <= 0) {
+            setMarketTip(null);
+            return;
+        }
         try {
-            const res = await API.get(`/marketplace/search`, {
-                params: { crop: searchCrop, district: searchDistrict }
+            const res = await API.get(`/market-check/${formData.crop_name}`, {
+                params: { current_price: price }
             });
-            setListings(res.data);
+            setMarketTip(res.data);
         } catch (err) {
-            console.error("Market search failed", err);
+            console.error(err);
+        }
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            await API.post('/list-crop', null, {
+                params: {
+                    farmer_id: userId,
+                    crop_name: formData.crop_name,
+                    quantity: formData.quantity,
+                    price: formData.price,
+                    is_organic: formData.is_organic
+                }
+            });
+            alert("Success: Crop listed in the marketplace!");
+            setFormData({ crop_name: 'Paddy', quantity: '', price: '', is_organic: false });
+            setMarketTip(null);
+            fetchListings();
+        } catch (err) {
+            alert("Error listing crop");
         }
     };
 
     return (
-        <div className="p-4 md:p-8 space-y-8">
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h2 className="text-2xl font-bold text-slate-800">{t.title}</h2>
-                    <p className="text-slate-500">{t.subtitle}</p>
+        <div className="space-y-10 animate-in fade-in duration-500">
+            <section className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm">
+                <div className="flex items-center gap-2 mb-6">
+                    <div className="bg-green-100 p-2 rounded-xl text-green-700">
+                        <Tag size={20} />
+                    </div>
+                    <h2 className="text-xl font-black text-slate-800">Sell Your Harvest</h2>
                 </div>
                 
-                {/* Search Bar */}
-                <div className="flex bg-white p-2 rounded-xl shadow-sm border border-slate-200 items-center gap-2">
-                    <Search size={18} className="text-slate-400 ml-2" />
+                <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <select 
+                        className="p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-green-500 font-bold text-slate-700"
+                        value={formData.crop_name}
+                        onChange={(e) => setFormData({...formData, crop_name: e.target.value})}
+                    >
+                        <option value="Paddy">Paddy</option>
+                        <option value="Cotton">Cotton</option>
+                        <option value="Chilli">Chilli</option>
+                    </select>
+
                     <input 
-                        type="text" 
-                        placeholder={t.cropPlaceholder} 
-                        className="p-2 outline-none text-sm w-32"
-                        value={searchCrop}
-                        onChange={(e) => setSearchCrop(e.target.value)}
+                        type="number" placeholder="Quantity (kg)" required
+                        className="p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none"
+                        value={formData.quantity}
+                        onChange={(e) => setFormData({...formData, quantity: e.target.value})}
                     />
-                    <div className="h-6 w-[1px] bg-slate-200"></div>
-                    <MapPin size={18} className="text-slate-400" />
-                    <input 
-                        type="text" 
-                        placeholder={t.distPlaceholder} 
-                        className="p-2 outline-none text-sm w-32"
-                        value={searchDistrict}
-                        onChange={(e) => setSearchDistrict(e.target.value)}
-                    />
-                    <button onClick={handleSearch} className="bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-green-800 transition">
-                        {t.searchBtn}
+
+                    <div className="relative">
+                        <input 
+                            type="number" placeholder="Price per kg (₹)" required
+                            className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none"
+                            value={formData.price}
+                            onChange={(e) => {
+                                setFormData({...formData, price: e.target.value});
+                                checkFairness(e.target.value);
+                            }}
+                        />
+                        {marketTip && (
+                            <div className="absolute -bottom-6 left-0 flex items-center gap-1">
+                                <Info size={10} className={marketTip.status === 'Premium' ? 'text-amber-500' : 'text-green-500'} />
+                                <p className={`text-[10px] font-black uppercase tracking-tighter ${marketTip.status === 'Premium' ? 'text-amber-600' : 'text-green-600'}`}>
+                                    {marketTip.status}: {marketTip.tip}
+                                </p>
+                            </div>
+                        )}
+                    </div>
+
+                    <button type="submit" className="bg-green-700 text-white font-black rounded-2xl hover:bg-green-800 transition shadow-lg shadow-green-100">
+                        Post Listing
                     </button>
+                </form>
+            </section>
+
+            <section className="space-y-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2">
+                        <ShoppingBag className="text-blue-600" /> Active Market
+                    </h2>
+                    <div className="flex gap-2">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-3 text-slate-400" size={16} />
+                            <input 
+                                type="text" placeholder="Search Crop..." 
+                                className="pl-10 p-2 bg-white border border-slate-200 rounded-xl text-sm"
+                                onChange={(e) => setSearchQuery({...searchQuery, crop: e.target.value})}
+                            />
+                        </div>
+                        <button onClick={fetchListings} className="bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-bold">Filter</button>
+                    </div>
                 </div>
-            </header>
 
-            {/* Listings Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {listings.length > 0 ? listings.map((item) => (
-                    <div key={item.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:border-green-200 transition">
-                        <div className="flex justify-between items-start mb-4">
-                            <h3 className="text-lg font-bold text-slate-800 uppercase">{item.crop_name}</h3>
-                            {item.is_organic && (
-                                <span className="flex items-center gap-1 text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold">
-                                    <BadgeCheck size={12} /> {t.organic}
-                                </span>
-                            )}
-                        </div>
-                        
-                        <div className="space-y-3 mb-6">
-                            <div className="flex justify-between text-sm">
-                                <span className="text-slate-500 flex items-center gap-2"><Scale size={16}/> {t.quantity}</span>
-                                <span className="font-bold">{item.quantity} kg</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {listings.map(item => (
+                        <div key={item.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition group">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <span className="text-[10px] font-black bg-slate-100 text-slate-500 px-2 py-1 rounded-md uppercase tracking-widest">
+                                        {item.is_organic ? 'Organic' : 'Standard'}
+                                    </span>
+                                    <h3 className="text-xl font-black text-slate-800 mt-1">{item.crop_name}</h3>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-2xl font-black text-green-700">₹{item.price_per_kg}</p>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase">Per Kilogram</p>
+                                </div>
                             </div>
-                            <div className="flex justify-between text-sm">
-                                <span className="text-slate-500 flex items-center gap-2"><MapPin size={16}/> {lang === 'te' ? 'జిల్లా' : 'District'}</span>
-                                <span className="font-bold">{item.location_district || "Telangana"}</span>
+                            
+                            <div className="flex items-center gap-4 py-4 border-t border-slate-50">
+                                <div className="flex-1">
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase">Stock</p>
+                                    <p className="font-bold text-slate-700">{item.quantity} kg</p>
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase">District</p>
+                                    <p className="font-bold text-slate-700 flex items-center gap-1">
+                                        <MapPin size={12} className="text-blue-500" /> TS Zone
+                                    </p>
+                                </div>
                             </div>
-                            <div className="flex justify-between text-sm">
-                                <span className="text-slate-500">{t.moisture}</span>
-                                <span className={`font-bold ${item.moisture_content < 14 ? 'text-green-600' : 'text-amber-600'}`}>
-                                    {item.moisture_content}%
-                                </span>
-                            </div>
-                        </div>
 
-                        <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
-                            <div>
-                                <p className="text-xs text-slate-400">{t.priceLabel}</p>
-                                <p className="text-xl font-black text-green-700">₹{item.price_per_kg}</p>
-                            </div>
-                            <button className="bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-black transition">
-                                {t.contact}
+                            <button className="w-full mt-4 bg-slate-50 text-slate-900 py-3 rounded-2xl font-bold group-hover:bg-green-700 group-hover:text-white transition-colors">
+                                Contact Farmer
                             </button>
                         </div>
-                    </div>
-                )) : (
-                    <div className="col-span-full py-20 text-center text-slate-400 italic">
-                        {t.noData}
-                    </div>
-                )}
-            </div>
+                    ))}
+                </div>
+            </section>
         </div>
     );
 };
