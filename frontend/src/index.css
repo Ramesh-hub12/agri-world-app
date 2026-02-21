@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+/* Custom Green Theme for Farmers */
+:root {
+  --primary-green: #2D5A27;
+}
